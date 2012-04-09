@@ -168,7 +168,7 @@ make_command_stream (int (*get_next_byte) (void *),
   for(i = 0; i < num_tokens; i++){
       token t = tokens[i];      
       if(t.type != NEWLINE_TOKEN)
-        printf("%s\t%s\n", type_names[t.type], t.text);
+        printf("%s\t: %s\n", type_names[t.type], t.text);
       else
         printf("%s\n", type_names[t.type]);
   }
