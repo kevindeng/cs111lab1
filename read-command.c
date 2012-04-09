@@ -193,7 +193,47 @@ read_command_stream (command_stream_t s)
     return NULL;
 }
 
-
+char** split(token *tokens, size_t array_size, token_type delim){
+	size_t size = array_size;
+	char** v_temp;
+	v_temp = (char**)checked_malloc(sizeof(char*) * size);
+	size_t used = 0;
+	char* temp;
+	bool open_paren =false; 
+	bool search = false; //keeps track if needs to search for close paren
+	
+	//Open paren is a special type of token
+	//if the delim passed is an open parenthesis we have to watch for 
+	//close parenthesis. So we will set a bool value to determine if we 
+	//need to watch for closing parenthesis
+	if(delim == OPEN_PAREN_TOKEN){
+		open_paren = true;
+	}
+	int i;
+	
+	for(i=0; i<array_size, i++){
+		if(tokens[i].type != delim){ //not the same
+			if(search ==true){ //looking for closing paren
+				if(tokens[i].type == CLOSE_PAREN_TOKEN){
+					search = false; //stop looking for closing paren
+				}	
+			}	
+				int maxchars = sizeof(temp) -(strnlen(temp)+1);
+				temp = strncat(temp, tokens[i], maxchars);
+		} else {
+			v_temp[used++] = temp;
+			if(open_paren == true){
+				//has to look for close parenthesis
+				search = true;	
+			}
+				v_temp[used++] = delim;
+				//clear cstring temp
+				strcpy(temp, "");
+			}	
+		}
+	}
+	return v_temp;
+}
 
 
 
