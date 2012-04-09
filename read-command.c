@@ -5,6 +5,32 @@
 
 #include <error.h>
 
+enum TYPE {subshell, command, token};
+
+struct NodeList;
+
+//tree
+typedef struct{
+    enum TYPE type;
+    char* value;
+    struct NodeList *children;
+    int count;
+} Node;
+
+// linked list
+typedef struct{
+    Node* data;
+    struct NodeList *next;
+} NodeList;
+
+//Function Prototypes
+//Linked List Methods
+void createNode(enum TYPE type, char *value);
+void insertNode(NodeList * nodeList_ptr, Node *node);
+void deleteNode(NodeList * head);
+
+
+
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
 
@@ -29,3 +55,28 @@ read_command_stream (command_stream_t s)
   error (1, 0, "command reading not yet implemented");
   return 0;
 }
+
+
+enum TYPE {subshell, command, token};
+
+struct NodeList;
+
+//tree
+typedef struct{
+    enum TYPE type;
+    char* value;
+    struct NodeList *children;
+    int count;
+} Node;
+
+// linked list
+typedef struct{
+    Node* data;
+    struct NodeList *next;
+} NodeList;
+
+//Function Prototypes
+//Linked List Methods
+void createNode(enum TYPE type, char *value);
+void insertNode(NodeList * nodeList_ptr, Node *node);
+void deleteNode(NodeList * head);
