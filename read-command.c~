@@ -11,6 +11,11 @@
 #include <string.h>
 
 
+#define true 1
+#define false 0
+
+typedef int bool;
+
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 /* command_stream */
@@ -157,12 +162,11 @@ int lexer(char* input, token** output, size_t* output_size){
   return 0;
 }
 
+//split function prototype 
+char** split(token *tokens, size_t array_size, token_type delim, size_t *vector_size);
 
-
-/*command_t
-make_command(char *text){
-  
-}*/
+void test_arvore_vec(token*, size_t);
+command_t parse(token*, size_t);
 
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
@@ -187,9 +191,14 @@ make_command_stream (int (*get_next_byte) (void *),
   token* tokens;
   size_t num_tokens = 0;
   lexer(buffer, &tokens, &num_tokens);
+  parse(tokens, num_tokens);
 
+  exit(0);
+
+  // debug
   size_t i;
   char* type_names[11] = {"word", ";", "|", "&&", "||", "(", ")", "<", ">", "NL", "?"}; 
+ 
   for(i = 0; i < num_tokens; i++){
       token t = tokens[i];      
       if(t.type != NEWLINE_TOKEN)
@@ -197,6 +206,24 @@ make_command_stream (int (*get_next_byte) (void *),
       else
         printf("%s\n", type_names[t.type]);
   }
+
+  //split tokens into "vectors"
+	char** vector;
+  char** vector_pipe;
+  char** vector_or;
+  char** vector_and;
+  size_t vector_size, vector_size_pipe, vector_size_or, vector_size_and;
+
+
+  vector = split(tokens, num_tokens, PIPE_TOKEN, &vector_size);
+  
+  size_t j;
+  //printf("Vector Size: %i", vector_size);
+  for(j=0; j< vector_size; j++){
+      
+      printf("Vector[%u]: %s \n", (unsigned int)j, vector[j]);
+  }
+
 
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
@@ -218,13 +245,164 @@ read_command_stream (command_stream_t s)
     return NULL;
 }
 
-/*char** split(token *tokens, size_t array_size, token_type delim){
+typedef enum {
+  COMMAND_AT,
+  TOKEN_AT
+} arvore_type;
+
+typedef struct {
+  arvore_type type;
+  union {
+    command_t cmd;
+    token* tok;
+  } u;
+} arvore;
+
+typedef struct {
+  arvore* array;
+  size_t size;
+  size_t capacity;
+} arvore_vec;
+
+void init_arvore_vec(arvore_vec** v, size_t capacity){
+  *v = (arvore_vec*)checked_malloc(sizeof(arvore_vec));
+  (*v)->array = (arvore*)checked_malloc(sizeof(arvore) * capacity);
+  (*v)->size = 0;
+  (*v)->capacity = capacity;
+}
+
+void set_arvore_vec(arvore_vec* v, arvore a, size_t position){
+  if(position >= v->capacity){
+    error(1, 0, "Array index out of bounds. Idiot.");
+    exit(1);
+  }
+  v->array[position] = a;
+}
+
+arvore get_arvore_vec(arvore_vec* v, size_t position){
+  if(position >= v->capacity){
+    error(1, 0, "Array index out of bounds. Idiot.");
+    exit(1);
+  }
+  return v->array[position];
+}
+
+void append_arvore_vec(arvore_vec* v, arvore a){
+  if(v->size == v->capacity){
+    v->array = (arvore*)checked_realloc(v->array, sizeof(arvore) * (v->capacity *= 2));
+  }
+  v->array[v->size++] = a;
+}
+
+void delete_arvore_vec(arvore_vec* v, size_t position){
+  size_t i = position + 1;
+  for(; i < v->size; i++){
+    v->array[i - 1] = v->array[i];
+  }
+  v->size--;
+}
+
+void splice_arvore_vec(arvore_vec* v, size_t start, size_t size, arvore replacement){
+  size_t i = 0;
+  for(; i < size - 1; i++){
+    delete_arvore_vec(v, start);
+  }
+  set_arvore_vec(v, replacement, start);
+}
+
+void test_arvore_vec(token* tokens, size_t num_toks){
+  arvore_vec* v;
+  init_arvore_vec(&v, num_toks);
+  size_t i = 0;
+  for(; i < num_toks; i++){
+    arvore a;
+    a.type = TOKEN_AT;
+    a.u.tok = tokens + i;
+    append_arvore_vec(v, a); 
+  }
+
+  for(i = 0; i < v->size; i++){
+    printf("%s\n", get_arvore_vec(v, i).u.tok->text);
+  }
+}
+
+void print_arvore_vec(arvore_vec* v){
+  size_t i = 0;
+  for(i; i < v->size; i++){
+    if(v->array[i].type == COMMAND_AT){
+      printf("commmand\t%d\n", v->array[i].u.cmd->type);
+    }
+    else{
+      if(v->array[i].u.tok->type != NEWLINE_TOKEN)
+        printf("token\t%s\n", v->array[i].u.tok->text);
+      else
+        printf("token\t%s\n", "(NEWLINE)");
+    }
+  }
+}
+
+command_t parse(token* tokens, size_t num_tokens){
+  // put all the tokens into a vector
+  arvore_vec* v;
+  init_arvore_vec(&v, num_tokens);
+  size_t i = 0;
+  for(; i < num_tokens; i++){
+    arvore a;
+    a.type = TOKEN_AT;
+    a.u.tok = tokens + i;
+    append_arvore_vec(v, a); 
+  }
+ 
+  printf("-----------------------\n  INITIAL\n-----------------------\n");
+  print_arvore_vec(v);
+
+  // parse simple commands
+  size_t cmd_start = 0;
+  size_t cmd_len = 0;
+  size_t j, k;
+  for(; i < v->size; i++){
+    if(v->array[i].type == TOKEN_AT && v->array[i].u.tok->type == WORD_TOKEN){
+      cmd_start = i;
+      cmd_len++;
+    }
+    else {
+      char** words = (char**)checked_malloc(sizeof(char*) * cmd_len);
+      for(j = 0; j < cmd_len; j++)
+        words[j] = v->array[cmd_start + j].u.tok->text;
+
+      command_t com = (command_t)checked_malloc(sizeof(struct command));
+      com->type = SIMPLE_COMMAND;
+      com->u.word = words;
+
+      arvore a;
+      a.type = COMMAND_AT;
+      a.u.cmd = com;
+
+      splice_arvore_vec(v, cmd_start, cmd_len, a);
+      cmd_len = 0;
+      i = cmd_start;
+    }
+  }
+
+  printf("-----------------------\n  SIMPLE COMMANDS\n-----------------------\n");
+  print_arvore_vec(v);
+
+  return NULL;
+}
+
+// split
+char** split(token *tokens, size_t array_size, token_type delim, size_t *vector_size){
 	size_t size = array_size;
 	char** v_temp;
 	v_temp = (char**)checked_malloc(sizeof(char*) * size);
+  *vector_size = 0;
 	size_t used = 0;
-	char* temp;
-	bool open_paren =false; 
+  
+	char* temp = (char*)malloc(104876);
+  
+
+
+	bool open_paren = false; 
 	bool search = false; //keeps track if needs to search for close paren
 	
 	//Open paren is a special type of token
@@ -234,31 +412,74 @@ read_command_stream (command_stream_t s)
 	if(delim == OPEN_PAREN_TOKEN){
 		open_paren = true;
 	}
-	int i;
+	size_t i;
 	
-	for(i=0; i<array_size, i++){
+
+  printf("Array Size %u", (unsigned int)array_size);
+
+	for(i=0; i<array_size; i++){
+    //printf("Current token %s \n", tokens[i].text);
 		if(tokens[i].type != delim){ //not the same
 			if(search ==true){ //looking for closing paren
 				if(tokens[i].type == CLOSE_PAREN_TOKEN){
 					search = false; //stop looking for closing paren
 				}	
 			}	
-				int maxchars = sizeof(temp) -(strnlen(temp)+1);
-				temp = strncat(temp, tokens[i], maxchars);
-		} else {
+				int maxchars = strlen(tokens[i].text);
+        char* new_str = (char*)malloc(1000);
+        strcpy(new_str, tokens[i].text);
+        strcat(new_str, " ");
+				temp = strncat(temp, new_str , maxchars+1);
+
+		} 
+    
+    if(tokens[i].type == delim) { //delimiter found  
+      printf("DELIM FOUND \n");
+      if(open_paren == true){ //has to look for close parenthesis
+				  search = true;	//look for close parenthesis
+			  }//end if
+
+      //insert created temp into vector
+      
 			v_temp[used++] = temp;
-			if(open_paren == true){
-				//has to look for close parenthesis
-				search = true;	
-			}
-				v_temp[used++] = delim;
-				//clear cstring temp
-				strcpy(temp, "");
-			}	
-		}
-	}
+      printf("INSERT TO VECTOR: %s \n", temp);
+      //printf("VECTOR VALUE AT THIS MOMEMNT: %s \n", v_temp[used]);
+      (*vector_size)++;
+      
+      //insert the delimiter into vector
+      v_temp[used++] = tokens[i].text;
+      printf("INSERT TO VECTOR: %s \n", tokens[i].text);
+      //printf("VECTOR VALUE AT THIS MOMEMNT: %s \n", v_temp[used]);
+      (*vector_size)++;
+
+      //clear temp to allocate new sequence
+      temp = (char*)malloc(104876);
+      strcpy(temp, "");
+
+		}//end if delim found
+
+
+  //delim never found, insert everything into vector
+  if((i == array_size-1) && tokens[i].type != delim){
+      
+    	v_temp[used++] = temp;
+      printf("INSERT TO VECTOR: %s \n", temp);
+      //printf("VECTOR VALUE AT THIS MOMEMNT LAST: %s \n", v_temp[used]);
+      (*vector_size)++;
+  }
+
+	}//end for
+
+   
+  size_t k=0;
+ // printf("VECTOR SIZE BEFORE END: %u", *vector_size);
+/*
+  for(k=0; k< *vector_size;k++){
+    printf("Vector[%u] = %s \n", k, v_temp[k]);      
+  } 
+*/
 	return v_temp;
-}*/
+};
 
 
 
