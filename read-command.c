@@ -11,6 +11,11 @@
 #include <string.h>
 
 
+#define true 1
+#define false 0
+
+typedef int bool;
+
 /* FIXME: Define the type 'struct command_stream' here.  This should
    complete the incomplete type declaration in command.h.  */
 /* command_stream */
@@ -132,12 +137,8 @@ int lexer(char* input, token** output, size_t* output_size){
   return 0;
 }
 
-
-
-/*command_t
-make_command(char *text){
-  
-}*/
+//split function prototype 
+char** split(token *tokens, size_t array_size, token_type delim, size_t *vector_size);
 
 command_stream_t
 make_command_stream (int (*get_next_byte) (void *),
@@ -165,6 +166,7 @@ make_command_stream (int (*get_next_byte) (void *),
 
   size_t i;
   char* type_names[11] = {"word", ";", "|", "&&", "||", "(", ")", "<", ">", "NL", "?"}; 
+ 
   for(i = 0; i < num_tokens; i++){
       token t = tokens[i];      
       if(t.type != NEWLINE_TOKEN)
@@ -172,6 +174,24 @@ make_command_stream (int (*get_next_byte) (void *),
       else
         printf("%s\n", type_names[t.type]);
   }
+
+  //split tokens into "vectors"
+	char** vector;
+  char** vector_pipe;
+  char** vector_or;
+  char** vector_and;
+  size_t vector_size, vector_size_pipe, vector_size_or, vector_size_and;
+
+
+  vector = split(tokens, num_tokens, PIPE_TOKEN, &vector_size);
+  
+  size_t j;
+  printf("Vector Size: %i", vector_size);
+  for(j=0; j< vector_size; j++){
+      
+      printf("Vector[%u]: %s \n", j, vector[j]);
+  }
+
 
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
@@ -193,13 +213,18 @@ read_command_stream (command_stream_t s)
     return NULL;
 }
 
-char** split(token *tokens, size_t array_size, token_type delim){
+char** split(token *tokens, size_t array_size, token_type delim, size_t *vector_size){
 	size_t size = array_size;
 	char** v_temp;
 	v_temp = (char**)checked_malloc(sizeof(char*) * size);
+  *vector_size = 0;
 	size_t used = 0;
-	char* temp;
-	bool open_paren =false; 
+  
+	char* temp = (char*)malloc(104876);
+  
+
+
+	bool open_paren = false; 
 	bool search = false; //keeps track if needs to search for close paren
 	
 	//Open paren is a special type of token
@@ -209,31 +234,74 @@ char** split(token *tokens, size_t array_size, token_type delim){
 	if(delim == OPEN_PAREN_TOKEN){
 		open_paren = true;
 	}
-	int i;
+	size_t i;
 	
-	for(i=0; i<array_size, i++){
+
+  printf("Array Size %d", array_size);
+
+	for(i=0; i<array_size; i++){
+    //printf("Current token %s \n", tokens[i].text);
 		if(tokens[i].type != delim){ //not the same
 			if(search ==true){ //looking for closing paren
 				if(tokens[i].type == CLOSE_PAREN_TOKEN){
 					search = false; //stop looking for closing paren
 				}	
 			}	
-				int maxchars = sizeof(temp) -(strnlen(temp)+1);
-				temp = strncat(temp, tokens[i], maxchars);
-		} else {
+				int maxchars = strlen(tokens[i].text);
+        char* new_str = (char*)malloc(1000);
+        strcpy(new_str, tokens[i].text);
+        strcat(new_str, " ");
+				temp = strncat(temp, new_str , maxchars+1);
+
+		} 
+    
+    if(tokens[i].type == delim) { //delimiter found  
+      printf("DELIM FOUND \n");
+      if(open_paren == true){ //has to look for close parenthesis
+				  search = true;	//look for close parenthesis
+			  }//end if
+
+      //insert created temp into vector
+      
 			v_temp[used++] = temp;
-			if(open_paren == true){
-				//has to look for close parenthesis
-				search = true;	
-			}
-				v_temp[used++] = delim;
-				//clear cstring temp
-				strcpy(temp, "");
-			}	
-		}
-	}
+      printf("INSERT TO VECTOR: %s \n", temp);
+      //printf("VECTOR VALUE AT THIS MOMEMNT: %s \n", v_temp[used]);
+      (*vector_size)++;
+      
+      //insert the delimiter into vector
+      v_temp[used++] = tokens[i].text;
+      printf("INSERT TO VECTOR: %s \n", tokens[i].text);
+      //printf("VECTOR VALUE AT THIS MOMEMNT: %s \n", v_temp[used]);
+      (*vector_size)++;
+
+      //clear temp to allocate new sequence
+      temp = (char*)malloc(104876);
+      strcpy(temp, "");
+
+		}//end if delim found
+
+
+  //delim never found, insert everything into vector
+  if((i == array_size-1) && tokens[i].type != delim){
+      
+    	v_temp[used++] = temp;
+      printf("INSERT TO VECTOR: %s \n", temp);
+      //printf("VECTOR VALUE AT THIS MOMEMNT LAST: %s \n", v_temp[used]);
+      (*vector_size)++;
+  }
+
+	}//end for
+
+   
+  size_t k=0;
+ // printf("VECTOR SIZE BEFORE END: %u", *vector_size);
+/*
+  for(k=0; k< *vector_size;k++){
+    printf("Vector[%u] = %s \n", k, v_temp[k]);      
+  } 
+*/
 	return v_temp;
-}
+};
 
 
 
