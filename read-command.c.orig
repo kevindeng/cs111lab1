@@ -238,7 +238,11 @@ read_command_stream (command_stream_t s)
     return NULL;
 }
 
+<<<<<<< HEAD
+/*char** split(token *tokens, size_t array_size, token_type delim){
+=======
 char** split(token *tokens, size_t array_size, token_type delim, size_t *vector_size){
+>>>>>>> 482a51f794d834c5c25c7bc131be31d24eaa3459
 	size_t size = array_size;
 	char** v_temp;
 	v_temp = (char**)checked_malloc(sizeof(char*) * size);
@@ -326,7 +330,11 @@ char** split(token *tokens, size_t array_size, token_type delim, size_t *vector_
   } 
 */
 	return v_temp;
+<<<<<<< HEAD
+}*/
+=======
 };
+>>>>>>> 482a51f794d834c5c25c7bc131be31d24eaa3459
 
 
 
