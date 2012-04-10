@@ -41,6 +41,7 @@ typedef struct {
 } token;
 
 int lexer(char* input, token** output, size_t* output_size){
+  // this regex will tokenize the input
   regex_t r;
   regcomp(&r, "[A-Za-z0-9!%+,-/:@^_.]+|[|]{2}|[&]{2}|[\n;|()<>#]{1}", REG_EXTENDED);
 
@@ -58,6 +59,7 @@ int lexer(char* input, token** output, size_t* output_size){
     offset += m.rm_eo;
   }
 
+  // assign types to the tokens
   *output = (token*)checked_malloc(sizeof(token) * used);
 
   unsigned int i, j;
@@ -108,6 +110,7 @@ int lexer(char* input, token** output, size_t* output_size){
       exit(1);
     }
 
+    // drop all comment tokens, save the rest
     if(!comment){
       (*output)[j].text = t;
       (*output)[j].type = type;
@@ -126,7 +129,29 @@ int lexer(char* input, token** output, size_t* output_size){
       printf("<!-- %s -->\n", t);*/
   }
 
+  // delete meaningless newlines
+  size_t k;
+  for(i = 0; i < j - 1; i++){
+    if((*output)[i + 1].type == NEWLINE_TOKEN && (
+        (*output)[i].type == SEMICOLON_TOKEN ||
+        (*output)[i].type == PIPE_TOKEN ||
+        (*output)[i].type == AND_TOKEN ||
+        (*output)[i].type == OR_TOKEN ||
+        (*output)[i].type == OPEN_PAREN_TOKEN ||
+        (*output)[i].type == CLOSE_PAREN_TOKEN ||
+        (*output)[i].type == NEWLINE_TOKEN
+    )){
+      for(k = i + 2; k < j; k++){
+        (*output)[k - 1] = (*output)[k];
+      }
+      j--;
+      i--;
+    }
+  }
+
+  // shrink the array down to the proper size
   *output_size = j;
+  *output = (token*)checked_realloc(*output, sizeof(token) * j);
 
   free(toks);
   return 0;
@@ -193,7 +218,7 @@ read_command_stream (command_stream_t s)
     return NULL;
 }
 
-char** split(token *tokens, size_t array_size, token_type delim){
+/*char** split(token *tokens, size_t array_size, token_type delim){
 	size_t size = array_size;
 	char** v_temp;
 	v_temp = (char**)checked_malloc(sizeof(char*) * size);
@@ -233,7 +258,7 @@ char** split(token *tokens, size_t array_size, token_type delim){
 		}
 	}
 	return v_temp;
-}
+}*/
 
 
 
