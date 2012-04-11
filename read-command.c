@@ -18,8 +18,6 @@
 
 typedef int bool;
 
-/* FIXME: Define the type 'struct command_stream' here.  This should
- complete the incomplete type declaration in command.h.  */
 /* command_stream */
 struct command_stream
 {
@@ -68,26 +66,29 @@ lexer(char* input, token** output, size_t* output_size)
   do
   {
     // delete leading whitespaces
-    for(i = 0; input[i] == ' ' || input[i] == '\t' || (first_pass && input[i] == '\n'); i++);
+    for (i = 0;
+        input[i] == ' ' || input[i] == '\t' || (first_pass && input[i] == '\n');
+        i++)
+      ;
     input = memmove(input, input + i, input_len - i + 1);
     input_len -= i;
 
-    if(first_pass)
+    if (first_pass)
       first_pass = 0;
 
     // exit if nothing left
-    if(input_len == 0)
+    if (input_len == 0)
       break;
 
     // match the regex
     int matched = !regexec(&r, input, 1, &m, 0);
 
     // if no match and input not empty, it's a parse error
-    if(!matched && input_len > 0)
+    if (!matched && input_len > 0)
       error(1, 0, "Syntax error.");
 
     // it's a parse error if we skip any characters
-    if(m.rm_so != 0)
+    if (m.rm_so != 0)
       error(1, 0, "Syntax error.");
 
     // store the match result
@@ -101,7 +102,7 @@ lexer(char* input, token** output, size_t* output_size)
     input = memmove(input, input + m.rm_eo, input_len - len + 1);
     input_len -= len;
   }
-  while(input_len > 0);
+  while (input_len > 0);
 
   // assign types to the tokens
   *output = (token*) checked_malloc(sizeof(token) * used);
@@ -215,11 +216,11 @@ lexer(char* input, token** output, size_t* output_size)
   }
 
   // delete trailing newline
-  if((*output)[j - 1].type == NEWLINE_TOKEN)
+  if ((*output)[j - 1].type == NEWLINE_TOKEN)
     j--;
 
   // delete leading newline
-  if(j > 0 && (*output)[0].type == NEWLINE_TOKEN)
+  if (j > 0 && (*output)[0].type == NEWLINE_TOKEN)
   {
     for (k = 1; k < j; k++)
     {
@@ -370,9 +371,6 @@ test_arvore_vec(token* tokens, size_t num_toks)
   print_arvore_vec(v);
 }
 
-
-
-
 arvore_vec*
 parse2(arvore_vec *cmds_tokens, token_type* target_types, size_t num_targets)
 {
@@ -389,9 +387,9 @@ parse2(arvore_vec *cmds_tokens, token_type* target_types, size_t num_targets)
     if (cmds_tokens->array[i].type == TOKEN_AT)
     {
       token_type tp = cmds_tokens->array[i].u.tok->type;
-      for(z = 0; z < num_targets; z++)
+      for (z = 0; z < num_targets; z++)
       {
-        if(tp == target_types[z])
+        if (tp == target_types[z])
         {
           //location of first delim found
           //location of delim = i;
@@ -404,13 +402,13 @@ parse2(arvore_vec *cmds_tokens, token_type* target_types, size_t num_targets)
     }
   } //end for
 
-  if(loc == 0)
+  if (loc == 0)
   {
     error(1, 0, "Cannot start with a special token.");
     //exit(1);
   }
 
-  if(loc == array_size - 1)
+  if (loc == array_size - 1)
   {
     error(1, 0, "Cannot end with a special token.");
     //exit(1);
@@ -418,13 +416,12 @@ parse2(arvore_vec *cmds_tokens, token_type* target_types, size_t num_targets)
 
   if (loc < array_size)
   {
-    if(get_arvore_vec(cmds_tokens, loc - 1).type != COMMAND_AT)
+    if (get_arvore_vec(cmds_tokens, loc - 1).type != COMMAND_AT)
       error(1, 0, "Left hand side not a command.");
-    if(get_arvore_vec(cmds_tokens, loc + 1).type != COMMAND_AT)
+    if (get_arvore_vec(cmds_tokens, loc + 1).type != COMMAND_AT)
       error(1, 0, "Right hand side not a command.");
 
-    //left hand side
-    //create a command
+    // create parent node
     command_t left = get_arvore_vec(cmds_tokens, loc - 1).u.cmd;
     command_t right = get_arvore_vec(cmds_tokens, loc + 1).u.cmd;
     command_t new_cmd = (command_t) checked_malloc(sizeof(struct command));
@@ -451,34 +448,37 @@ parse2(arvore_vec *cmds_tokens, token_type* target_types, size_t num_targets)
 
     // copy unused arvores on the left
     size_t j;
-    for(j = 0; j < loc - 1; j++)
+    for (j = 0; j < loc - 1; j++)
       append_arvore_vec(temp, get_arvore_vec(cmds_tokens, j));
 
-    //left hand side
+    // append command on left hand side
     arvore a;
     a.type = COMMAND_AT;
     a.u.cmd = new_cmd;
     append_arvore_vec(temp, a);
 
-    //right hand side
+    // copy unused arvores on the right
     for (j = loc + 2; j < array_size; j++)
     {
       append_arvore_vec(temp, get_arvore_vec(cmds_tokens, j));
     }
+
+    // recurse
     return parse2(temp, target_types, num_targets);
   }
 
-  return cmds_tokens; //return final command
+  // base case: return the only command left
+  return cmds_tokens;
 
-} //end of function make_command_tree
+}
 
 command_t
 parse(arvore_vec* v)
 {
-  if(v->size == 0)
+  if (v->size == 0)
     error(1, 0, "Input is empty.");
 
-  if(DEBUG)
+  if (DEBUG)
   {
     printf("-----------------------\n  INITIAL\n-----------------------\n");
     print_arvore_vec(v);
@@ -522,7 +522,7 @@ parse(arvore_vec* v)
       }
     }
 
-    if(open_count != 0)
+    if (open_count != 0)
       error(1, 0, "Parenthesis do not match.");
 
     // if there is a subshell, recursively parse the contents inside
@@ -555,7 +555,7 @@ parse(arvore_vec* v)
   }
   while (has_sub);
 
-  if(DEBUG)
+  if (DEBUG)
   {
     printf("-----------------------\n  SUBSHELL\n-----------------------\n");
     print_arvore_vec(v);
@@ -611,7 +611,7 @@ parse(arvore_vec* v)
     }
   }
 
-  if(DEBUG)
+  if (DEBUG)
   {
     printf(
         "-----------------------\n  SIMPLE COMMANDS\n-----------------------\n");
@@ -659,44 +659,49 @@ parse(arvore_vec* v)
     }
   }
 
-  if(DEBUG)
+  if (DEBUG)
   {
-    printf("-----------------------\n  IO REDIRECTS\n-----------------------\n");
+    printf(
+        "-----------------------\n  IO REDIRECTS\n-----------------------\n");
     print_arvore_vec(v);
   }
 
   // parse the rest
   token_type pp = PIPE_TOKEN;
   v = parse2(v, &pp, 1);
-  if(DEBUG)
+  if (DEBUG)
   {
     printf("-----------------------\n  PIPES\n-----------------------\n");
     print_arvore_vec(v);
   }
 
-  token_type and_n_ors[2] = {AND_TOKEN, OR_TOKEN};
+  token_type and_n_ors[2] =
+  { AND_TOKEN, OR_TOKEN };
   v = parse2(v, and_n_ors, 2);
-  if(DEBUG)
+  if (DEBUG)
   {
     printf("-----------------------\n  ANDS & ORS\n-----------------------\n");
     print_arvore_vec(v);
   }
 
-  token_type nls_n_scs[2] = {NEWLINE_TOKEN, SEMICOLON_TOKEN};
+  token_type nls_n_scs[2] =
+  { NEWLINE_TOKEN, SEMICOLON_TOKEN };
   v = parse2(v, nls_n_scs, 2);
-  if(DEBUG)
+  if (DEBUG)
   {
-    printf("-----------------------\n  NEWLINE & SEMICOLONSs\n-----------------------\n");
+    printf(
+        "-----------------------\n  NEWLINE & SEMICOLONSs\n-----------------------\n");
     print_arvore_vec(v);
   }
 
-  return get_arvore_vec(v, 0).u.cmd;;
+  return get_arvore_vec(v, 0).u.cmd;
 }
 
 command_stream_t
 make_command_stream(int
 (*get_next_byte)(void *), void *get_next_byte_argument)
 {
+  // read all the input
   size_t bufferSize = 1024;
   size_t read = 0;
   int val;
@@ -716,6 +721,7 @@ make_command_stream(int
   }
   buffer[read] = 0;
 
+  // lex the input
   token* tokens;
   size_t num_tokens = 0;
   lexer(buffer, &tokens, &num_tokens);
@@ -734,6 +740,7 @@ make_command_stream(int
     append_arvore_vec(v, a);
   }
 
+  // parse tokens into AST
   command_t top_cmd = parse(v);
   //print_command(top_cmd);
 
@@ -748,12 +755,12 @@ make_command_stream(int
   arvore_vec* list;
   init_arvore_vec(&list, 10);
 
-  while(stack->size > 0)
+  while (stack->size > 0)
   {
     arvore pop = get_arvore_vec(stack, stack->size - 1);
     command_t cmd = pop.u.cmd;
     stack->size--;
-    if(cmd->type == SEQUENCE_COMMAND)
+    if (cmd->type == SEQUENCE_COMMAND)
     {
       arvore a;
       a.type = COMMAND_AT;
@@ -770,26 +777,29 @@ make_command_stream(int
     }
   }
 
-  command_stream_t cst = (command_stream_t)checked_malloc(sizeof(struct command_stream));
-  cst->commands = (command_t*)checked_malloc(sizeof(command_t) * list->size);
-  for(i = 0; i < list->size; i++)
+  // create command stream
+  command_stream_t cst = (command_stream_t) checked_malloc(
+      sizeof(struct command_stream));
+  cst->commands = (command_t*) checked_malloc(sizeof(command_t) * list->size);
+  for (i = 0; i < list->size; i++)
     cst->commands[i] = get_arvore_vec(list, i).u.cmd;
   cst->size = list->size;
   cst->iterator = 0;
+
   return cst;
 
   // debug
   /*char* type_names[11] =
-  { "word", ";", "|", "&&", "||", "(", ")", "<", ">", "NL", "?" };
+   { "word", ";", "|", "&&", "||", "(", ")", "<", ">", "NL", "?" };
 
-  for (i = 0; i < num_tokens; i++)
-  {
-    token t = tokens[i];
-    if (t.type != NEWLINE_TOKEN)
-      printf("%s\t%s\n", type_names[t.type], t.text);
-    else
-      printf("%s\n", type_names[t.type]);
-  }*/
+   for (i = 0; i < num_tokens; i++)
+   {
+   token t = tokens[i];
+   if (t.type != NEWLINE_TOKEN)
+   printf("%s\t%s\n", type_names[t.type], t.text);
+   else
+   printf("%s\n", type_names[t.type]);
+   }*/
 }
 
 command_t
