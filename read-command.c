@@ -55,28 +55,57 @@ lexer(char* input, token** output, size_t* output_size)
 {
   // this regex will tokenize the input
   regex_t r;
-  regcomp(&r, "(?:[ \t]*)([A-Za-z0-9!%+,-/:@^_.]+|[|]{2}|[&]{2}|[\n;|()<>#]{1})",
+  regcomp(&r, "[A-Za-z0-9!%+,-/:@^_.]+|[|]{2}|[&]{2}|[\n;|()<>#]{1}",
       REG_EXTENDED);
 
   size_t used = 0;
   char** toks = (char**) checked_malloc(sizeof(char*) * strlen(input));
   regmatch_t m;
-  size_t offset = 0;
+  size_t input_len = strlen(input);
+  size_t i, j, k;
+  int first_pass = 1;
 
-  while (!regexec(&r, input + offset, 1, &m, 0))
+  do
   {
+    // delete leading whitespaces
+    for(i = 0; input[i] == ' ' || input[i] == '\t' || (first_pass && input[i] == '\n'); i++);
+    input = memmove(input, input + i, input_len - i + 1);
+    input_len -= i;
+
+    if(first_pass)
+      first_pass = 0;
+
+    // exit if nothing left
+    if(input_len == 0)
+      break;
+
+    // match the regex
+    int matched = !regexec(&r, input, 1, &m, 0);
+
+    // if no match and input not empty, it's a parse error
+    if(!matched && input_len > 0)
+      error(1, 0, "Syntax error.");
+
+    // it's a parse error if we skip any characters
+    if(m.rm_so != 0)
+      error(1, 0, "Syntax error.");
+
+    // store the match result
     size_t len = m.rm_eo - m.rm_so;
     char* f = (char*) malloc(len + 1);
-    memcpy(f, input + offset + m.rm_so, len);
+    memcpy(f, input + m.rm_so, len);
     f[len] = 0;
     toks[used++] = f;
-    offset += m.rm_eo;
+
+    // delete consumed input
+    input = memmove(input, input + m.rm_eo, input_len - len + 1);
+    input_len -= len;
   }
+  while(input_len > 0);
 
   // assign types to the tokens
   *output = (token*) checked_malloc(sizeof(token) * used);
 
-  unsigned int i, j;
   int comment = 0;
 
   for (i = 0, j = 0; i < used; i++)
@@ -147,6 +176,10 @@ lexer(char* input, token** output, size_t* output_size)
       (*output)[j].type = type;
       j++;
     }
+    else
+    {
+      free(t);
+    }
 
     // debug
     /*char* type_names[11] = {"word", ";", "|", "&&", "||", "(", ")", "<", ">", "NL", "?"};
@@ -161,7 +194,6 @@ lexer(char* input, token** output, size_t* output_size)
   }
 
   // delete meaningless newlines
-  size_t k;
   for (i = 0; i < j - 1; i++)
   {
     if ((*output)[i + 1].type == NEWLINE_TOKEN
@@ -172,6 +204,7 @@ lexer(char* input, token** output, size_t* output_size)
             || (*output)[i].type == CLOSE_PAREN_TOKEN
             || (*output)[i].type == NEWLINE_TOKEN))
     {
+      free((*output)[i + 1].text);
       for (k = i + 2; k < j; k++)
       {
         (*output)[k - 1] = (*output)[k];
@@ -199,6 +232,8 @@ lexer(char* input, token** output, size_t* output_size)
   *output_size = j;
   *output = (token*) checked_realloc(*output, sizeof(token) * j);
 
+  // clean up
+  regfree(&r);
   free(toks);
   return 0;
 }
