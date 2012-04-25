@@ -1,0 +1,26 @@
+README
+
+Lab1a - CS 111 - April 10,2012
+By  Chao Deng 603761428
+	Stephani Alves 403915436
+
+Overall idea
+-------------	
+In this assignment we relied on regular expressions to do most of our parsing. 
+We carefully tokenized the input matching patterns and then assigned types to the tokens as required by the existent files.
+We dropped all the comments, deleted newlines and meaningless characters.
+We created our own implementation of a vector to keep track of the data structure. We called it an "arvore", which carries a tree implementation of our parsed shell structure.
+Our arvore has methods such as get, append, splice, print and delete.
+
+To create our structure, we parsed the tokens into commands giving them a hierarchy. From left to right we create a tree structure based on this hierarchy. We go through a few iterations of our parse function to accomplish this task.
+
+
+Limitations
+------------
+Our program doesn't parse the full shell script grammar, just the required parsing asked in the specs. 
+It would be difficult to parse the full shell script grammar since our parse method lacks generality. 
+
+
+Extra features
+--------------
+We have implemented the syntax tree traversal which can be use for part 1b.

@@ -439,7 +439,7 @@ parse2(arvore_vec *cmds_tokens, token_type* target_types, size_t num_targets)
     {
       new_cmd->type = AND_COMMAND;
     }
-    else if (curr_token_type == NEWLINE_TOKEN || curr_token_type == SEMICOLON_TOKEN)
+    else if (curr_token_type == NEWLINE_TOKEN)
     {
       new_cmd->type = SEQUENCE_COMMAND;
     }
