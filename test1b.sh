@@ -1,3 +1,3 @@
 #!/bin/bash
 
-cat < /etc/passwd | tr a-z A-Z | sort -u > out || echo sort failed!
+echo A && (echo B && echo C)

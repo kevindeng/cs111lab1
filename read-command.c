@@ -476,7 +476,10 @@ command_t
 parse(arvore_vec* v)
 {
   if (v->size == 0)
-    error(1, 0, "Input is empty.");
+  {
+    fprintf(stderr, "Input is empty.\n");
+    exit(0);
+  }
 
   if (DEBUG)
   {

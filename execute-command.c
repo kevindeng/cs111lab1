@@ -63,6 +63,7 @@ execute_command (command_t c, int time_travel)
       execute_command(c->u.command[1], time_travel);
       c->status = c->u.command[1]->status;
     }
+    else
       c->status = c->u.command[0]->status;
     break;
 
