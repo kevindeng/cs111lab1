@@ -77,6 +77,7 @@ void
 vector_delete(vector_t* vector)
 {
   free(vector->data);
+  free(vector);
 }
 
 /* ------------------------------- */
@@ -100,8 +101,6 @@ get_used_files(command_t c)
     vector_append_vector(f, b);
     vector_delete(a);
     vector_delete(b);
-    free(a);
-    free(b);
     break;
   }
 
@@ -396,7 +395,21 @@ execute()
   }
 
   //cleanup
-
+  size_t id;
+  for(id = 0; id < cmd_des_vec->size; id++)
+  {
+    cmd_des* d = (cmd_des*)cmd_des_vec->data[id];
+    size_t i;
+    for(i = 0; i < d->waitfor->size; i++)
+      free(d->waitfor->data[i]);
+    vector_delete(d->waitfor);
+    vector_delete(d->files);
+    free(d);
+  }
+  vector_delete(cmd_des_vec);
+  cmd_des_vec = NULL;
+  cmd_id = 0;
+  timetravel = 0;
 }
 
 void
