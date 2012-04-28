@@ -24,10 +24,10 @@ typedef struct
 vector_t*
 vector_create(size_t initial_size)
 {
-  vector_t* t = (vector_t*)checked_malloc(sizeof(vector_t));
+  vector_t* t = (vector_t*) checked_malloc(sizeof(vector_t));
   t->size = 0;
   t->capacity = initial_size;
-  t->data = (void**)checked_malloc(initial_size * sizeof(void*));
+  t->data = (void**) checked_malloc(initial_size * sizeof(void*));
   memset(t->data, 0, initial_size * sizeof(void*));
   return t;
 }
@@ -35,7 +35,7 @@ vector_create(size_t initial_size)
 int
 vector_set(vector_t* vector, void* data, size_t position)
 {
-  if(position >= vector->size)
+  if (position >= vector->size)
     return 0;
 
   vector->data[position] = data;
@@ -45,10 +45,11 @@ vector_set(vector_t* vector, void* data, size_t position)
 void
 vector_append(vector_t* vector, void* data)
 {
-  if(vector->size >= vector->capacity)
+  if (vector->size >= vector->capacity)
   {
     vector->capacity *= 2;
-    vector->data = (void**)checked_realloc(vector->data, vector->capacity * sizeof(void*));
+    vector->data = (void**) checked_realloc(vector->data,
+        vector->capacity * sizeof(void*));
   }
 
   vector->data[vector->size] = data;
@@ -59,16 +60,17 @@ void
 vector_append_vector(vector_t* a, vector_t* b)
 {
   size_t i;
-  for(i = 0; i < b->size; i++)
+  for (i = 0; i < b->size; i++)
     vector_append(a, b->data[i]);
 }
 
 int
-vector_contains(vector_t* vector, void* data, int (*compare)(void* a, void* b))
+vector_contains(vector_t* vector, void* data, int
+(*compare)(void* a, void* b))
 {
   size_t i;
-  for(i = 0; i < vector->size; i++)
-    if(vector->data[i] == data || compare(vector->data[i], data))
+  for (i = 0; i < vector->size; i++)
+    if (vector->data[i] == data || compare(vector->data[i], data))
       return 1;
   return 0;
 }
@@ -86,7 +88,7 @@ vector_t*
 get_used_files(command_t c)
 {
   vector_t* f = vector_create(8);
-  switch(c->type)
+  switch (c->type)
   {
 
   // recursively traverse the command structure
@@ -117,12 +119,12 @@ get_used_files(command_t c)
   {
     // put arguments in
     char** w;
-    for(w = c->u.word + 1; *w != NULL; w++)
+    for (w = c->u.word + 1; *w != NULL; w++)
       vector_append(f, *w);
     // put io redirects in
-    if(c->input)
+    if (c->input)
       vector_append(f, c->input);
-    if(c->output)
+    if (c->output)
       vector_append(f, c->output);
     break;
   }
@@ -151,9 +153,9 @@ inline int
 check_overlap(vector_t* a, vector_t* b)
 {
   size_t i, j;
-  for(i = 0; i < a->size; i++)
-    for(j = 0; j < b->size; j++)
-      if(strcmp(a->data[i], b->data[j]) == 0)
+  for (i = 0; i < a->size; i++)
+    for (j = 0; j < b->size; j++)
+      if (strcmp(a->data[i], b->data[j]) == 0)
         return 1;
   return 0;
 }
@@ -182,13 +184,13 @@ execute_command(command_t c, int time_travel)
     c->status = c->u.command[1]->status;
     break;
 
-  // subshell < ( A ) > execute A
+    // subshell < ( A ) > execute A
   case SUBSHELL_COMMAND:
     execute_command(c->u.subshell_command, time_travel);
     c->status = c->u.subshell_command->status;
     break;
 
-  // and < A && B > execute A; execute B if and only if return code from A is zero
+    // and < A && B > execute A; execute B if and only if return code from A is zero
   case AND_COMMAND:
     execute_command(c->u.command[0], time_travel);
     if (c->u.command[0]->status == 0)
@@ -200,7 +202,7 @@ execute_command(command_t c, int time_travel)
       c->status = 0;
     break;
 
-  // and < A || B > execute A; execute B if and only if return code from A is non-zero
+    // and < A || B > execute A; execute B if and only if return code from A is non-zero
   case OR_COMMAND:
     execute_command(c->u.command[0], time_travel);
     if (c->u.command[0]->status != 0)
@@ -212,9 +214,9 @@ execute_command(command_t c, int time_travel)
       c->status = c->u.command[0]->status;
     break;
 
-  /* pipe < A | B > fork two child processes, one to execute A,
-   * one to execute B, linking them with a pipe
-   */
+    /* pipe < A | B > fork two child processes, one to execute A,
+     * one to execute B, linking them with a pipe
+     */
   case PIPE_COMMAND:
   {
     command_t left = c->u.command[0];
@@ -270,9 +272,9 @@ execute_command(command_t c, int time_travel)
   }
     break;
 
-  /* simple command < A > fork a child process to execute the program,
-   * handling file redirects as appropriate
-   */
+    /* simple command < A > fork a child process to execute the program,
+     * handling file redirects as appropriate
+     */
   case SIMPLE_COMMAND:
   {
     // create child process
@@ -337,17 +339,17 @@ void
 execute()
 {
   size_t num_undone = cmd_des_vec->size;
-  while(num_undone > 0)
+  while (num_undone > 0)
   {
     size_t id;
-    for(id = 0; id < cmd_des_vec->size; id++)
+    for (id = 0; id < cmd_des_vec->size; id++)
     {
-      cmd_des* des = (cmd_des*)cmd_des_vec->data[id];
+      cmd_des* des = (cmd_des*) cmd_des_vec->data[id];
 
-      if(des->running)
+      if (des->running)
       {
         int stat;
-        if(waitpid(des->pid, &stat, num_undone == 1 ? 0 : WNOHANG) == des->pid)
+        if (waitpid(des->pid, &stat, num_undone == 1 ? 0 : WNOHANG) == des->pid)
         {
           des->running = 0;
           des->cmd->status = stat;
@@ -355,32 +357,32 @@ execute()
         }
       }
 
-      if(des->cmd->status != -1 || des->running)
+      if (des->cmd->status != -1 || des->running)
         continue;
 
       int dependencies_done = 1;
       size_t i;
       vector_t* wf = des->waitfor;
-      for(i = 0; i < wf->size; i++)
+      for (i = 0; i < wf->size; i++)
       {
-        int d = *((int*)wf->data[i]);
-        cmd_des* t = (cmd_des*)cmd_des_vec->data[d];
-        if(t->cmd->status == -1)
+        int d = *((int*) wf->data[i]);
+        cmd_des* t = (cmd_des*) cmd_des_vec->data[d];
+        if (t->cmd->status == -1)
         {
           dependencies_done = 0;
           break;
         }
       }
 
-      if(dependencies_done)
+      if (dependencies_done)
       {
         pid_t p = fork();
-        if(p == -1)
+        if (p == -1)
           error(1, 0, "Fork failed\n");
 
         des->running = 1;
 
-        if(p == 0)
+        if (p == 0)
         {
           command_t cmd = des->cmd;
           execute_command(cmd, timetravel);
@@ -396,11 +398,11 @@ execute()
 
   //cleanup
   size_t id;
-  for(id = 0; id < cmd_des_vec->size; id++)
+  for (id = 0; id < cmd_des_vec->size; id++)
   {
-    cmd_des* d = (cmd_des*)cmd_des_vec->data[id];
+    cmd_des* d = (cmd_des*) cmd_des_vec->data[id];
     size_t i;
-    for(i = 0; i < d->waitfor->size; i++)
+    for (i = 0; i < d->waitfor->size; i++)
       free(d->waitfor->data[i]);
     vector_delete(d->waitfor);
     vector_delete(d->files);
@@ -418,10 +420,10 @@ load_command(command_t c, int time_travel)
   // set status to unknown (indicating not finished yet)
   c->status = -1;
 
-  if(!cmd_des_vec)
+  if (!cmd_des_vec)
     cmd_des_vec = vector_create(10);
 
-  if(time_travel)
+  if (time_travel)
     timetravel = 1;
   else
   {
@@ -430,7 +432,7 @@ load_command(command_t c, int time_travel)
   }
 
   vector_t* f = get_used_files(c);
-  cmd_des* u = (cmd_des*)checked_malloc(sizeof(cmd_des));
+  cmd_des* u = (cmd_des*) checked_malloc(sizeof(cmd_des));
   u->id = cmd_id++;
   u->files = f;
   u->cmd = c;
@@ -440,16 +442,15 @@ load_command(command_t c, int time_travel)
 
   vector_t* waitfor = vector_create(1);
   size_t id;
-  for(id = 0; id < cmd_id - 1; id++)
+  for (id = 0; id < cmd_id - 1; id++)
   {
-    if(check_overlap(((cmd_des*)cmd_des_vec->data[id])->files, f))
+    if (check_overlap(((cmd_des*) cmd_des_vec->data[id])->files, f))
     {
-      int* x = (int*)checked_malloc(sizeof(int));
+      int* x = (int*) checked_malloc(sizeof(int));
       *x = id;
       vector_append(waitfor, x);
     }
   }
   u->waitfor = waitfor;
 }
-
 

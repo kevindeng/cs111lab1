@@ -1,8 +1,8 @@
 README
 
-Lab1a - CS 111 - April 10,2012
+Lab 1 - CS 111 - April 10,2012
 By  Chao Deng 603761428
-	Stephani Alves 403915436
+    Stephani Alves 403915436
 
 Overall idea
 -------------	
@@ -14,13 +14,13 @@ Our arvore has methods such as get, append, splice, print and delete.
 
 To create our structure, we parsed the tokens into commands giving them a hierarchy. From left to right we create a tree structure based on this hierarchy. We go through a few iterations of our parse function to accomplish this task.
 
+Once the command tree is built, it's fairly straightforward to execute them in the correct sequence by doing a depth-first traversal.
 
 Limitations
 ------------
-Our program doesn't parse the full shell script grammar, just the required parsing asked in the specs. 
-It would be difficult to parse the full shell script grammar since our parse method lacks generality. 
+Our program doesn't parse the full shell script grammar, just the required parsing asked in the specs. It would be difficult to parse the full shell script grammar since our parse method lacks generality. 
 
+Parallelism is accomplished by checking on dependencies. The dependencies are not really accurate because we can't distinguish filenames from options, so we assume that options are dependencies as well. This can potentially make our program run slower than sequential in some cases. We roughly tested our parallelism with the sleep command and that appeared to be working as expected. We however, tried to run our program with a script that was about 5000 lines long and that turned out to have poorer performance than the sequential version due to so many inaccurate dependencies. To make it work better (with real parallelism), we would have to implement a better mechanism to distinguish between files and options. Read before write and write before read and so forth would also have to be taken into account.
 
-Extra features
---------------
-We have implemented the syntax tree traversal which can be use for part 1b.
+We use an O(N^2) tight loop in the master process to dispatch child processes. Every command's dependencies are polled in each pass to determine if the command is safe to execute. This consumes CPU cycles and can potentially become a significant overhead if there are a large number of very short processes with extensive dependencies (which can be inaccurate as mentioned above). The implementation works better with smaller numbers of long processes with less complex dependency structures.
+
