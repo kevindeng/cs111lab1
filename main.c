@@ -64,9 +64,11 @@ main (int argc, char **argv)
       else
 	{
 	  last_command = command;
-	  execute_command (command, time_travel);
+	  load_command (command, time_travel);
 	}
     }
+  if(!print_tree)
+    execute();
 
   return print_tree || !last_command ? 0 : command_status (last_command);
 }

@@ -12,7 +12,158 @@
 #include <sys/wait.h>
 #include <string.h>
 
+/* -- vector -- */
+
+typedef struct
+{
+  void** data;
+  size_t size;
+  size_t capacity;
+} vector_t;
+
+vector_t*
+vector_create(size_t initial_size)
+{
+  vector_t* t = (vector_t*)checked_malloc(sizeof(vector_t));
+  t->size = 0;
+  t->capacity = initial_size;
+  t->data = (void**)checked_malloc(initial_size * sizeof(void*));
+  memset(t->data, 0, initial_size * sizeof(void*));
+  return t;
+}
+
 int
+vector_set(vector_t* vector, void* data, size_t position)
+{
+  if(position >= vector->size)
+    return 0;
+
+  vector->data[position] = data;
+  return 1;
+}
+
+void
+vector_append(vector_t* vector, void* data)
+{
+  if(vector->size >= vector->capacity)
+  {
+    vector->capacity *= 2;
+    vector->data = (void**)checked_realloc(vector->data, vector->capacity * sizeof(void*));
+  }
+
+  vector->data[vector->size] = data;
+  vector->size++;
+}
+
+void
+vector_append_vector(vector_t* a, vector_t* b)
+{
+  size_t i;
+  for(i = 0; i < b->size; i++)
+    vector_append(a, b->data[i]);
+}
+
+int
+vector_contains(vector_t* vector, void* data, int (*compare)(void* a, void* b))
+{
+  size_t i;
+  for(i = 0; i < vector->size; i++)
+    if(vector->data[i] == data || compare(vector->data[i], data))
+      return 1;
+  return 0;
+}
+
+void
+vector_delete(vector_t* vector)
+{
+  free(vector->data);
+}
+
+/* ------------------------------- */
+
+vector_t*
+get_used_files(command_t c)
+{
+  vector_t* f = vector_create(8);
+  switch(c->type)
+  {
+
+  // recursively traverse the command structure
+  case SEQUENCE_COMMAND:
+  case AND_COMMAND:
+  case OR_COMMAND:
+  case PIPE_COMMAND:
+  {
+    vector_t* a = get_used_files(c->u.command[0]);
+    vector_t* b = get_used_files(c->u.command[1]);
+    vector_append_vector(f, a);
+    vector_append_vector(f, b);
+    vector_delete(a);
+    vector_delete(b);
+    free(a);
+    free(b);
+    break;
+  }
+
+  case SUBSHELL_COMMAND:
+  {
+    vector_t* a = get_used_files(c->u.subshell_command);
+    vector_append_vector(f, a);
+    vector_delete(a);
+    free(a);
+    break;
+  }
+
+  case SIMPLE_COMMAND:
+  {
+    // put arguments in
+    char** w;
+    for(w = c->u.word + 1; *w != NULL; w++)
+      vector_append(f, *w);
+    // put io redirects in
+    if(c->input)
+      vector_append(f, c->input);
+    if(c->output)
+      vector_append(f, c->output);
+    break;
+  }
+
+  }
+  return f;
+}
+
+/* ------------------------------- */
+
+typedef struct
+{
+  size_t id;
+  command_t cmd;
+  vector_t* files;
+  vector_t* waitfor;
+  int running;
+  pid_t pid;
+} cmd_des;
+
+static vector_t* cmd_des_vec = NULL;
+static size_t cmd_id = 0;
+static int timetravel = 0;
+
+inline int
+check_overlap(vector_t* a, vector_t* b)
+{
+  size_t i, j;
+  for(i = 0; i < a->size; i++)
+    for(j = 0; j < b->size; j++)
+      if(strcmp(a->data[i], b->data[j]) == 0)
+        return 1;
+  return 0;
+}
+
+/* ------------------------------- */
+
+/*static vector_t* files_in_use = NULL;*/
+
+inline int
 command_status(command_t c)
 {
   return c->status;
@@ -21,8 +172,6 @@ command_status(command_t c)
 void
 execute_command(command_t c, int time_travel)
 {
-  // set status to unknown (indicating not finished yet)
-  c->status = -1;
 
   switch (c->type)
   {
@@ -185,146 +334,109 @@ execute_command(command_t c, int time_travel)
   }
 }
 
-/* part C stuff
-
-struct node
+void
+execute()
 {
-  void* data;
-  struct node* next;
-};
-
-typedef struct
-{
-  struct node* head;
-  struct node* tail;
-  struct node* iterator;
-} list;
-
-list create_list()
-{
-  list l;
-  l.head = NULL;
-  l.tail = NULL;
-  l.iterator = NULL;
-  return l;
-}
-
-void list_add(list* list, void* data)
-{
-  if(list && data)
+  size_t num_undone = cmd_des_vec->size;
+  while(num_undone > 0)
   {
-    struct node* n = (struct node*)checked_malloc(sizeof(struct node));
-    n->data = data;
-    n->next = NULL;
-
-    if(!list->head)
+    size_t id;
+    for(id = 0; id < cmd_des_vec->size; id++)
     {
-      list->head = n;
-      list->tail = n;
-      list->iterator = n;
-    }
-    else
-    {
-      list->tail->next = n;
-      list->tail = n;
-    }
-  }
-}
+      cmd_des* des = (cmd_des*)cmd_des_vec->data[id];
 
-void* list_next(list* list)
-{
-  void* tmp = list->iterator->data;
-  list->iterator = list->iterator->next;
-  return tmp;
-}
+      if(des->running)
+      {
+        int stat;
+        if(waitpid(des->pid, &stat, num_undone == 1 ? 0 : WNOHANG) == des->pid)
+        {
+          des->running = 0;
+          des->cmd->status = stat;
+          num_undone--;
+        }
+      }
 
-void list_reset_iterator(list* list)
-{
-  list->iterator = list->head;
-}
+      if(des->cmd->status != -1 || des->running)
+        continue;
 
-int list_find(list* list, void* item)
-{
-  int i = 0;
-  struct node* n = list->head;
-  while(n)
-  {
-    if(n->data == item)
-      return i;
-    else
-      n = n->next;
-  }
-  return -1;
-}
+      int dependencies_done = 1;
+      size_t i;
+      vector_t* wf = des->waitfor;
+      for(i = 0; i < wf->size; i++)
+      {
+        int d = *((int*)wf->data[i]);
+        cmd_des* t = (cmd_des*)cmd_des_vec->data[d];
+        if(t->cmd->status == -1)
+        {
+          dependencies_done = 0;
+          break;
+        }
+      }
 
-void delete_list(list* list)
-{
-  if(list)
-  {
-    struct node* tmp;
-    struct node* n = list->head;
-    while(n)
-    {
-      tmp = n;
-      n = n->next;
-      free(tmp);
+      if(dependencies_done)
+      {
+        pid_t p = fork();
+        if(p == -1)
+          error(1, 0, "Fork failed\n");
+
+        des->running = 1;
+
+        if(p == 0)
+        {
+          command_t cmd = des->cmd;
+          execute_command(cmd, timetravel);
+          exit(cmd->status);
+        }
+        else
+        {
+          des->pid = p;
+        }
+      }
     }
   }
+
+  //cleanup
+
 }
 
 void
-get_files(list* l, command_t c, int which)
+load_command(command_t c, int time_travel)
 {
-  char* f;
-  if(which == 0)
-    f = c->input;
-  else if(which == 1)
-    f = c->output;
+  // set status to unknown (indicating not finished yet)
+  c->status = -1;
+
+  if(!cmd_des_vec)
+    cmd_des_vec = vector_create(10);
+
+  if(time_travel)
+    timetravel = 1;
   else
-    return;
-
-  switch(c->type)
   {
-
-  case SIMPLE_COMMAND:
-    if(f)
-      list_add(l, f);
-    break;
-
-  case SUBSHELL_COMMAND:
-    get_files(l, c->u.subshell_command, which);
-    break;
-
-  case AND_COMMAND:
-  case SEQUENCE_COMMAND:
-  case OR_COMMAND:
-    get_files(l, c->u.command[0], which);
-    get_files(l, c->u.command[1], which);
-    break;
-
-  default:
-    error(1, 0, "Unknown command type.");
-    break;
-
+    execute_command(c, time_travel);
+    return;
   }
+
+  vector_t* f = get_used_files(c);
+  cmd_des* u = (cmd_des*)checked_malloc(sizeof(cmd_des));
+  u->id = cmd_id++;
+  u->files = f;
+  u->cmd = c;
+  u->running = 0;
+  u->pid = 0;
+  vector_append(cmd_des_vec, u);
+
+  vector_t* waitfor = vector_create(1);
+  size_t id;
+  for(id = 0; id < cmd_id - 1; id++)
+  {
+    if(check_overlap(((cmd_des*)cmd_des_vec->data[id])->files, f))
+    {
+      int* x = (int*)checked_malloc(sizeof(int));
+      *x = id;
+      vector_append(waitfor, x);
+    }
+  }
+  u->waitfor = waitfor;
 }
 
-int
-data_hazard(command_t a, command_t b)
-{
-  list in_a = create_list();
-  list out_a = create_list();
-  list in_b = create_list();
-  list out_b = create_list();
 
-  get_files(in_a, a, 0);
-  get_files(out_a, a, 1);
-  get_files(in_b, b, 0);
-  get_files(out_b, b, 1);
-
-
-
-  return 0;
-}
-
-*/
